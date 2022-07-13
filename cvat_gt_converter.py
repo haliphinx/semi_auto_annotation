@@ -7,7 +7,9 @@ class GTdata:
         Input:
             xml_path: the path to the gt file
         '''
-        self.data = self.xml_reader(xml_path)
+        self.xml_path = xml_path
+        self.xml_root = self.xml_reader(self.xml_path)
+        self.data = self.xml_parser(self.xml_root)
 
     def get_bbox(self, obj_id: int = 0, frame_id: int = 0) -> tuple:
         '''
@@ -62,12 +64,24 @@ class GTdata:
 
         return bboxes
 
-
-    def xml_reader(self, xml_path: str) -> dict:
+    def xml_reader(self, xml_path:str) ->object:
         '''
-        Read the data from an xml file and generate a dictionary
+        Read the xml file into a tree structure and get the root node
+        '''
+        # Read the xml file as a tree
+
+        dom = xml.dom.minidom.parse(xml_path)
+
+        # Get the root node of the tree ('annotations' in gt file)
+        root = dom.documentElement
+
+        return root
+
+    def xml_parser(self, xml_root:object) -> dict:
+        '''
+        Read the data from an xml tree and generate a dictionary
         Input:
-            xml_path: the path to the xml file
+            xml_root: the root of the xml tree
         Output:
             data: the generated dictionary data
 
@@ -89,12 +103,9 @@ class GTdata:
         --------ybr: float, the y value for the bottom right corner of the bbox
         --------z_order: int, not sure but keep it.
         '''
-        # Read the xml file as a tree
-
-        dom = xml.dom.minidom.parse(xml_path)
 
         # Get the root node of the tree ('annotations' in gt file)
-        root = dom.documentElement
+        root = xml_root
         
         # The dict to store all the infos
         data = {}
@@ -128,6 +139,7 @@ class GTdata:
         size_node = task_node.getElementsByTagName('original_size')[0]
         f_width = float(size_node.getElementsByTagName('width')[0].childNodes[0].nodeValue)
         f_height = float(size_node.getElementsByTagName('height')[0].childNodes[0].nodeValue)
+        data["frame_size"] = (f_width, f_height)
 
         # Get the annotation data
         data["annotations"] = {}
@@ -172,8 +184,56 @@ class GTdata:
 
         return data
 
+    def update_xml(self, obj_id: int, bbox_traj: dict, is_save:bool = False) -> None:
+        '''
+
+        '''
+        track_nodes = self.xml_root.getElementsByTagName('track')
+        obj_node = None
+        for track in track_nodes:
+            t_id = int(track.getAttribute("id"))
+            if t_id == obj_id:
+                obj_node = track
+                break
+        
+        assert obj_node is not None, "Can't find the object when updating."
+
+        t_data = obj_node.getElementsByTagName('box')
+        for item in t_data:
+            frame_id = int(item.getAttribute("frame"))
+
+            # If the current frame has new data to update
+            if frame_id in bbox_traj:
+                bbox = bbox_traj[frame_id]
+                xtl = round(min(max(bbox[0], 0), self.data["frame_size"][0]), 2)
+                ytl = round(min(max(bbox[1], 0), self.data["frame_size"][1]), 2)
+                xbr = round(min(max(bbox[2], 0), self.data["frame_size"][0]), 2)
+                ybr = round(min(max(bbox[3], 0), self.data["frame_size"][1]), 2)
+                item.setAttribute("xtl", str(xtl))
+                item.setAttribute("ytl", str(ytl))
+                item.setAttribute("xbr", str(xbr))
+                item.setAttribute("ybr", str(ybr))
+                item.setAttribute("keyframe", "1")
+
+                # update the data
+                self.data["annotations"][t_id][frame_id]["xtl"] = xtl
+                self.data["annotations"][t_id][frame_id]["ytl"] = ytl
+                self.data["annotations"][t_id][frame_id]["xbr"] = xbr
+                self.data["annotations"][t_id][frame_id]["ybr"] = ybr
+                self.data["annotations"][t_id][frame_id]["keyframe"] = True
+            else:
+                continue
+            
+
+        
+        path = self.xml_path
+        with open(path, "w") as f:
+            self.xml_root.writexml(f, addindent=' ', newl='')
+
+
 
 if __name__ == "__main__":
-    xml_path = "/home/xhu/Code/auto_annotation/data/annotations.xml"
+    xml_path = "/home/xhu/Code/auto_annotation/data/_uH0q0yl-hA_38_42/annotations.xml"
     gt = GTdata(xml_path)
-    print(gt.get_bbox(frame_id = 93))
+    # print(gt.get_bbox(frame_id = 93))
+    # gt.update_xml()

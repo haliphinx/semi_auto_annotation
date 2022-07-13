@@ -263,25 +263,27 @@ def for_back_interpolation(ftrack: list, btrack: list) -> dict:
                         (f_bbox[3]*f_weight + b_bbox[3]*b_weight))
     return itrack
     
-def init_keyframe_select(start:int, end:int) -> list:
+
+def add_keyframe(gt:object, frame_list:list, obj_id:int, frame_ids:list) -> None:
     '''
-    Generate the initial keyframe list
+    The function to add keyframes and annotations
+    Input:
+        gt: the ground truth data 
+        frame_list: the list of frame path
+        obj_id: the object id to be labeled
+        frame_ids: the list of frame_id to be labeled
     '''
-    res = [start, end]
-    
-    flag = True
-    while flag:
-        meta = []
-        flag = False
-        for idx in range(0, len(res)-1):
-            item1 = res[idx]
-            item2 = res[idx+1]
-            if item2 - item1 > 32:
-                meta.append((item2 + item1)//2)
-                flag = True
-        res += meta
-        res.sort()
-    return res
+    for frame_id in frame_ids:
+        cur_frame = cv2.imread(frame_list[frame_id])
+        resize_ratio = 3
+        resize_dim = (cur_frame.shape[1] * resize_ratio, cur_frame.shape[0] * resize_ratio)
+        resized_frame = cv2.resize(cur_frame, resize_dim, interpolation = cv2.INTER_AREA)
+        bbox = cv2.selectROI(f"frame {frame_id} -- object {obj_id}", resized_frame, showCrosshair = False)
+        new_bbox = {}
+        new_bbox[frame_id] = (bbox[0]/resize_ratio, bbox[1]/resize_ratio, (bbox[0] + bbox[2])/resize_ratio, (bbox[1] + bbox[3])/resize_ratio)
+        gt.update_xml(obj_id, new_bbox, is_save = True)
+        cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
 

@@ -1,19 +1,11 @@
 from utils import *
 import json
 
-if __name__ == "__main__":
-
-    json_path = "/home/xhu/Code/auto_annotation/src/config.json"
-    with open(json_path, 'r') as f:
-        cfg = json.load(f)
-
-    gt = GTdata(cfg["xml_path"])
-
-    interval = cfg["intervals"]
+def track_all_intervals(gt, cfg, interval, frame_list, is_draw):
 
     assert len(interval) > 0, "No valid interval."
 
-    frame_list = frame_list_gen(cfg["img_path"])
+    
 
     # print(frame_list)
 
@@ -96,7 +88,9 @@ if __name__ == "__main__":
             
             else:
                 # If all methods are tried and no one tracked successfully
+                
                 if (tracker_tried == track_num) and (viou_max == 0):
+                    
                     mid = (cur_interval[1]+cur_interval[0])//2
                     interval.append([cur_interval[0], mid])
                     interval.append([mid, cur_interval[1]])
@@ -117,18 +111,64 @@ if __name__ == "__main__":
 
         gt_bbox_traj = gt.get_bboxes(cfg["obj_id"])
         
-        # Draw the bbox to the frame
-        draw_result(frame_list, i_bbox_traj, cfg["save_path"], False, None, True, keyframe)
+        if is_draw:
+            # Draw the bbox to the frame
+            draw_result(frame_list, i_bbox_traj, cfg["save_path"], False, None, True, keyframe)
+
+        # Update the bboxes in the xml file
+        gt.update_xml(cfg["obj_id"], i_bbox_traj, True)
+        return kf_require, []
+
 
     else:
-        if len(cfg["intervals"]) == 1:
-            print("initial keyframe selection.",init_keyframe_select(cfg["intervals"][0][0], cfg["intervals"][0][1]))
+        # if len(cfg["intervals"]) == 1:
+        #     print("initial keyframe selection.",init_keyframe_select(cfg["intervals"][0][0], cfg["intervals"][0][1]))
         obj_id = cfg["obj_id"]
         print(f"The gt for {obj_id} in frame {kf_require} need to be labeled.")
-        cfg["intervals"] = false_interval
+        cfg["intervals"] = list(false_interval)
+        # interval = cfg["intervals"]
         with open(json_path, 'w') as f:
             json.dump(cfg, f)
+    
+        return kf_require, cfg["intervals"]
 
-# [[0,143], [263, 359]]
-# [[0,124]]
-# [[0,329]]
+if __name__ == "__main__":
+
+    json_path = "/home/xhu/Code/auto_annotation/data/Yu89511vgwg_40_49/config.json"
+    with open(json_path, 'r') as f:
+        cfg = json.load(f)
+
+    gt = GTdata(cfg["xml_path"])
+
+    interval = cfg["intervals"]
+
+    frame_list = frame_list_gen(cfg["img_path"])
+
+    kf_require = set()
+
+    while(len(interval)>0):
+        if len(kf_require) != 0:
+            add_keyframe(gt, frame_list, cfg["obj_id"], kf_require)
+            kf_require = set()
+
+        kf_require, interval = track_all_intervals(gt, cfg, interval, frame_list, False)
+    
+
+        # while(not finish):
+
+        #     if len(kf_require) != 0:
+        #         add_keyframe(gt, frame_list, cfg["obj_id"], kf_require)
+        #         kf_require = set()
+
+    
+    # Retrack again for double check and generate the result video
+    is_finish = False
+    while not is_finish:
+        interval = cfg["original_intervals"]
+        kf_require, _ = track_all_intervals(gt, cfg, interval, frame_list, True)
+        if len(kf_require) == 0:
+            is_finish = True
+        else:
+            add_keyframe(gt, frame_list, cfg["obj_id"], kf_require)
+            kf_require = set()
+    

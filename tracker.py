@@ -163,6 +163,7 @@ if __name__ == '__main__' :
 
     # Uncomment the line below to select a different bounding box manually
     # bbox = cv2.selectROI(frame, False)
+    # print(bbox)
 
     # Initialize tracker with first frame and bounding box
     ok = tracker.init(frame, bbox)
