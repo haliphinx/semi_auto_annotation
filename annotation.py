@@ -128,13 +128,13 @@ def track_all_intervals(gt, cfg, interval, frame_list, is_draw):
         cfg["intervals"] = list(false_interval)
         # interval = cfg["intervals"]
         with open(json_path, 'w') as f:
-            json.dump(cfg, f)
+            json.dump(cfg, f, indent=4)
     
         return kf_require, cfg["intervals"]
 
 if __name__ == "__main__":
 
-    json_path = "/home/xhu/Code/auto_annotation/data/Yu89511vgwg_40_49/config.json"
+    json_path = "/home/xhu/Code/auto_annotation/data/test/config.json"
     with open(json_path, 'r') as f:
         cfg = json.load(f)
 
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     # Retrack again for double check and generate the result video
     is_finish = False
     while not is_finish:
-        interval = cfg["original_intervals"]
+        interval = cfg["original_interval"][cfg["obj_id"]]
         kf_require, _ = track_all_intervals(gt, cfg, interval, frame_list, True)
         if len(kf_require) == 0:
             is_finish = True

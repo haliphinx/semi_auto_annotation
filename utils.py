@@ -273,12 +273,13 @@ def add_keyframe(gt:object, frame_list:list, obj_id:int, frame_ids:list) -> None
         obj_id: the object id to be labeled
         frame_ids: the list of frame_id to be labeled
     '''
+    obj_name = gt.data["labels"][obj_id]
     for frame_id in frame_ids:
         cur_frame = cv2.imread(frame_list[frame_id])
-        resize_ratio = 3
+        resize_ratio = 2
         resize_dim = (cur_frame.shape[1] * resize_ratio, cur_frame.shape[0] * resize_ratio)
         resized_frame = cv2.resize(cur_frame, resize_dim, interpolation = cv2.INTER_AREA)
-        bbox = cv2.selectROI(f"frame {frame_id} -- object {obj_id}", resized_frame, showCrosshair = False)
+        bbox = cv2.selectROI(f"frame: {frame_id} -- object: {obj_name}", resized_frame, showCrosshair = False)
         new_bbox = {}
         new_bbox[frame_id] = (bbox[0]/resize_ratio, bbox[1]/resize_ratio, (bbox[0] + bbox[2])/resize_ratio, (bbox[1] + bbox[3])/resize_ratio)
         gt.update_xml(obj_id, new_bbox, is_save = True)

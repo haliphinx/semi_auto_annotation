@@ -149,6 +149,7 @@ class GTdata:
             # Get the label of the tracker
             t_label = track.getAttribute("label")
             t_id = int(track.getAttribute("id"))
+            labels[t_id] = t_label
 
             # Store the trajectory data of the tracker
             t_data_dict = {}
