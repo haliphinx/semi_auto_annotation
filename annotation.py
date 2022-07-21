@@ -66,12 +66,13 @@ def track_all_intervals(gt, cfg, interval, frame_list, is_draw):
 
         viou_max = 0
         tracker_tried = 0
+        gt_iou_thresh = 0.8
         
         # Track the interval by all selected trackers
         for tracker in cfg["track_type"]:
-            viou, ftrack, btrack = tracker_eval(gt, frame_list, cur_interval[0], cur_interval[1], tracker, cfg["obj_id"])
+            viou, ftrack, btrack, gt_iou = tracker_eval(gt, frame_list, cur_interval[0], cur_interval[1], tracker, cfg["obj_id"])
             tracker_tried += 1
-            if viou >= viou_thresh and viou > viou_max:
+            if gt_iou > gt_iou_thresh and viou >= viou_thresh and viou > viou_max:
                 # add the current interval into final interval list if hasn't done before
                 if viou_max == 0:
                     final_interval.append(cur_interval)

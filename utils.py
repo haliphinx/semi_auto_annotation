@@ -151,7 +151,7 @@ def viou_gt(gt_bboxes:list, est_bboxes:dict) -> float:
     else:
         return iou_sum / f_tracked
 
-def tracker_eval(gt:object, frame_list:list, start:int, end:int, track_type:int, obj_id:int) -> tuple:
+def tracker_eval(gt:object, frame_list:list, start:int, end:int, track_type:int, obj_id:int, gt_comp:bool = True) -> tuple:
     '''
     Evaluate the tracking method on a given frame sequences with the volume iou
     Input:
@@ -160,10 +160,12 @@ def tracker_eval(gt:object, frame_list:list, start:int, end:int, track_type:int,
         start & end: the frame sequence id for tracking
         track_type: the tracker used for tracking
         obj_id: the id of the object to be tracked
+        gt_comp: if compare the tracker result with the annotated gt in the interval
     Output:
         viou: the volume iou between forward tracking and backward tracking
         ftrack_bbox: the bbox trajectory from forward tracking
         btrack_bbox: the bbox trajectory from backward tracking
+        gt_iou: the iou calculated with gt ksyframes
     '''
 
     init_bbox_start = gt.get_bbox(obj_id = obj_id, frame_id = start)
@@ -184,19 +186,44 @@ def tracker_eval(gt:object, frame_list:list, start:int, end:int, track_type:int,
 
     ftrack_bbox = opencvTracker(frame_list, init_bbox_start, track_type)
 
+    # The backward tracking, the result is in the inverse order
     btrack_bbox = opencvTracker(frame_list, init_bbox_end, track_type, is_inverse = True)
 
     # print(len(btrack_bbox), len(ftrack_bbox))
 
     if len(btrack_bbox) != len(frame_list) or len(ftrack_bbox) != len(frame_list):
         print(f"method {track_type} can't tracking successfully")
-        return 0.0, ftrack_bbox, btrack_bbox
+        return 0.0, ftrack_bbox, btrack_bbox, 0.0
 
     viou = volume_iou(ftrack_bbox, btrack_bbox)
 
-    print(f"The {track_type} method tracks successfully, the viou info is {viou[0]}")
 
-    return viou[0], ftrack_bbox, btrack_bbox
+    # if using the pre-labeled frames for evaluation
+    gt_iou_list = []
+    gt_iou = 1.0
+
+    if gt_comp and (end-start) > 1:
+        # loop through all frames to see if there is any pre-labeled keyframes in the interval
+        for idx in range(start+1, end):
+            
+            gt_bbox = gt.get_bbox(obj_id = obj_id, frame_id = idx)
+            # if a keyframe is detected
+            if len(gt_bbox) == 4:
+                # The forward tracking bbox
+                f_bbox = ftrack_bbox[idx - start]
+
+                # The backward tracking bbox
+                b_bbox = btrack_bbox[-(idx-start+1)]
+
+                # Add the iou into the list
+                gt_iou_list.append(iou_cal(gt_bbox, f_bbox))
+                gt_iou_list.append(iou_cal(gt_bbox, b_bbox))
+        if len(gt_iou_list) > 0:
+            gt_iou = sum(gt_iou_list) / len(gt_iou_list)
+
+    print(f"The {track_type} method tracks successfully, the viou info is {viou[0]}, the gt_iou info is {gt_iou}, total gt num is {len(gt_iou_list)//2}")
+
+    return viou[0], ftrack_bbox, btrack_bbox, gt_iou
 
 def draw_result(frame_list:list, bboxes:dict, save_path:str, add_gt:bool = False, gt:list = None, is_vid:bool = False, keyframe:list = None) -> None:
     '''
